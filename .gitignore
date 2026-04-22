@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+logs/*.csv
+tunes/*.bin
+.DS_Store
