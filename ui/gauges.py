@@ -12,10 +12,10 @@ from config.theme import ACCENT, ACCENT_2, DANGER, MUTED, TEXT, WARN
 
 
 class Gauge:
-    SIZE = 220
-    CENTER = 110
-    RADIUS = 78
-    NUM_SEGMENTS = 40
+    SIZE = 180
+    CENTER = 90
+    RADIUS = 62
+    NUM_SEGMENTS = 36
     NUM_TICKS = 6
     START_DEG = -225   # bottom-left, sweep clockwise 270° to bottom-right
     END_DEG = 45
@@ -61,8 +61,8 @@ class Gauge:
         return f"{v:6.2f} {self.unit}"
 
     def build(self):
-        with dpg.child_window(width=self.SIZE + 10,
-                              height=self.SIZE + 50, border=True,
+        with dpg.child_window(width=self.SIZE + 8,
+                              height=self.SIZE + 40, border=True,
                               no_scrollbar=True):
             dpg.add_text(self.label, color=MUTED)
             self._draw_tag = dpg.generate_uuid()

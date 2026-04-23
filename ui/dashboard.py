@@ -4,7 +4,8 @@ from typing import List
 import dearpygui.dearpygui as dpg
 
 from config.pids import GAUGE_LAYOUT, STANDARD_PIDS, EXTENDED_PIDS
-from config.theme import ACCENT, ACCENT_2, DANGER, MUTED, WARN, apply_global_theme
+from config.theme import (ACCENT, ACCENT_2, DANGER, MUTED, TEXT, WARN,
+                          apply_global_theme)
 from core.datalogger import DataLogger
 from core.obd_client import OBDClient
 from core.tune_dumper import TuneDumper
@@ -12,7 +13,8 @@ from ui.gauges import Gauge
 from ui.graphs import LiveGraph
 
 
-GAUGE_COLS = 4
+GAUGE_COLS = 6
+KMH_TO_MPH = 0.621371
 
 
 class Dashboard:
@@ -32,6 +34,12 @@ class Dashboard:
         self._probe_status_tag = 0
         self._probe_row_tags: dict = {}
         self._last_version: int = -1
+        self._hero_rpm_tag = 0
+        self._hero_mph_tag = 0
+        self._hero_coolant_tag = 0
+        self._hero_intake_tag = 0
+        self._hero_oil_tag = 0
+        self._hero_batt_tag = 0
 
     def build(self):
         dpg.create_context()
@@ -75,6 +83,8 @@ class Dashboard:
         dpg.add_separator()
 
     def _build_gauges(self):
+        self._build_hero()
+        dpg.add_separator()
         row = []
         for entry in GAUGE_LAYOUT:
             key, label, vmin, vmax, danger, unit = entry
@@ -90,6 +100,81 @@ class Dashboard:
             with dpg.group(horizontal=True):
                 for gg in row:
                     gg.build()
+
+    def _build_hero(self):
+        """Oversized digital readouts that sit above the arc gauges."""
+        with dpg.group(horizontal=True):
+            # --- RPM (giant digital) ---
+            with dpg.child_window(width=520, height=180, border=True,
+                                  no_scrollbar=True):
+                dpg.add_text("ENGINE RPM", color=MUTED)
+                dl = dpg.generate_uuid()
+                dpg.add_drawlist(width=500, height=140, tag=dl)
+                self._hero_rpm_tag = dpg.generate_uuid()
+                dpg.draw_text((30, 5), "----", color=ACCENT, size=120,
+                              tag=self._hero_rpm_tag, parent=dl)
+
+            # --- MPH (giant digital, converted from km/h) ---
+            with dpg.child_window(width=360, height=180, border=True,
+                                  no_scrollbar=True):
+                dpg.add_text("SPEED  (MPH)", color=MUTED)
+                dl = dpg.generate_uuid()
+                dpg.add_drawlist(width=340, height=140, tag=dl)
+                self._hero_mph_tag = dpg.generate_uuid()
+                dpg.draw_text((80, 5), "--", color=ACCENT, size=120,
+                              tag=self._hero_mph_tag, parent=dl)
+
+            # --- Temps + battery (digital column) ---
+            with dpg.child_window(width=300, height=180, border=True,
+                                  no_scrollbar=True):
+                dpg.add_text("TEMPS  /  BATT", color=MUTED)
+                dpg.add_separator()
+                self._hero_coolant_tag = dpg.generate_uuid()
+                self._hero_intake_tag = dpg.generate_uuid()
+                self._hero_oil_tag = dpg.generate_uuid()
+                self._hero_batt_tag = dpg.generate_uuid()
+                dpg.add_text("Coolant   --", tag=self._hero_coolant_tag,
+                             color=TEXT)
+                dpg.add_text("Intake    --", tag=self._hero_intake_tag,
+                             color=TEXT)
+                dpg.add_text("Oil       --", tag=self._hero_oil_tag,
+                             color=TEXT)
+                dpg.add_text("Battery   --", tag=self._hero_batt_tag,
+                             color=TEXT)
+
+    def _update_hero(self, snap):
+        rpm = snap.get("RPM")
+        speed = snap.get("SPEED")
+        coolant = snap.get("COOLANT")
+        intake = snap.get("INTAKE_TEMP")
+        oil = snap.get("OIL_TEMP")
+        batt = snap.get("BATT_V")
+
+        dpg.configure_item(
+            self._hero_rpm_tag,
+            text="----" if rpm is None else f"{int(rpm):>4d}")
+        dpg.configure_item(
+            self._hero_mph_tag,
+            text="--" if speed is None else f"{int(speed * KMH_TO_MPH):>3d}")
+
+        if coolant is None:
+            dpg.set_value(self._hero_coolant_tag, "Coolant   --")
+        else:
+            dpg.set_value(self._hero_coolant_tag,
+                          f"Coolant  {coolant:5.1f} °C")
+        if intake is None:
+            dpg.set_value(self._hero_intake_tag, "Intake    --")
+        else:
+            dpg.set_value(self._hero_intake_tag,
+                          f"Intake   {intake:5.1f} °C")
+        if oil is None:
+            dpg.set_value(self._hero_oil_tag, "Oil       --")
+        else:
+            dpg.set_value(self._hero_oil_tag, f"Oil      {oil:5.1f} °C")
+        if batt is None:
+            dpg.set_value(self._hero_batt_tag, "Battery   --")
+        else:
+            dpg.set_value(self._hero_batt_tag, f"Battery  {batt:5.2f} V")
 
     def _build_graphs(self):
         groups = [
@@ -232,6 +317,7 @@ class Dashboard:
             snap = self.client.snapshot()
             dpg.set_value(self._status_tag,
                           "DEMO" if self.client.demo else "CONNECTED")
+            self._update_hero(snap)
             for g in self.gauges:
                 g.update(snap.get(g.key))
             for lg in self.graphs:
