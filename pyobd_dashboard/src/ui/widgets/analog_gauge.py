@@ -52,14 +52,17 @@ class AnalogGauge(ctk.CTkFrame):
             width=2
         )
 
-        # Danger zone arc (red area at high values)
+        # Danger zone arc (red area starting at danger_threshold)
+        danger_start_angle = self.start_angle - (self.danger_threshold * self.sweep_range)
+        danger_extent = -int(self.sweep_range * (1 - self.danger_threshold))
+
         self.danger_arc = self.canvas.create_arc(
             self.center_x - self.radius,
             self.center_y - self.radius,
             self.center_x + self.radius,
             self.center_y + self.radius,
-            start=self.start_angle,
-            extent=int(self.sweep_range * (1 - self.danger_threshold)),
+            start=int(danger_start_angle),
+            extent=danger_extent,
             style="arc",
             width=8,
             outline=ThemeManager.get("WARNING")
