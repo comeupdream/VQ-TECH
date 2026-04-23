@@ -13,6 +13,7 @@ Run examples:
 """
 import argparse
 import sys
+import traceback
 
 from core.obd_client import OBDClient
 from ui.dashboard import Dashboard
@@ -34,19 +35,23 @@ def parse_args():
 
 def main():
     args = parse_args()
+    print(f"[vq-tech] starting (demo={args.demo}, port={args.port})",
+          flush=True)
 
     client = OBDClient(port=args.port, baudrate=args.baud, demo=args.demo)
     if not client.connect():
         print("ERROR: could not connect to ELM327. "
               "Pair the dongle / bind rfcomm, or re-run with --demo.",
-              file=sys.stderr)
+              file=sys.stderr, flush=True)
         sys.exit(1)
 
     client.start(interval=1.0 / args.poll_hz)
+    print("[vq-tech] OBD client started, building UI...", flush=True)
 
     try:
         dash = Dashboard(client)
         dash.build()
+        print("[vq-tech] UI built, entering render loop.", flush=True)
         dash.run()
     except KeyboardInterrupt:
         pass
@@ -55,4 +60,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        print("\n[vq-tech] UNHANDLED EXCEPTION:\n", file=sys.stderr,
+              flush=True)
+        traceback.print_exc()
+        input("\nPress Enter to exit...")
+        sys.exit(1)
