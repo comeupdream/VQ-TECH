@@ -60,6 +60,20 @@ class DashboardApp(ctk.CTk):
         self.configure(fg_color=ThemeManager.get("BACKGROUND"))
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
+        # Version header
+        from version import get_version_string
+        header_frame = ctk.CTkFrame(self, fg_color=ThemeManager.get("CARD_BG"), height=40)
+        header_frame.pack(fill="x", padx=20, pady=(10, 0))
+        header_frame.pack_propagate(False)
+
+        version_label = ctk.CTkLabel(
+            header_frame,
+            text=get_version_string(),
+            font=("Arial", 12, "bold"),
+            text_color=ThemeManager.get("ACCENT")
+        )
+        version_label.pack(side="left", padx=15, pady=8)
+
         self.tabview = ctk.CTkTabview(self)
         self.tabview.pack(fill="both", expand=True, padx=20, pady=20)
 
