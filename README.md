@@ -14,6 +14,19 @@ Stack: **python-obd** + **Dear PyGui**.
 
 ---
 
+## Two dashboards in this repo
+
+| Path | UI | When to use |
+|---|---|---|
+| `python main.py ...` | Custom Dear PyGui dash (this repo) | VQ37VHR-specific layout, hero RPM/MPH digitals, tiered polling, ROM-dump button stub. Lighter weight. |
+| `python run_pyobd.py` | Forked **barracuda-fsh/pyobd** (wxPython) | Polished general-purpose OBD-II diagnostics — DTC read/clear, sensor browser, live charting, trouble-code lookup. Best for general car health. GPLv2 (see `pyobd_fork/COPYING`). |
+
+Install both deps the first time:
+```bash
+pip install -r requirements.txt              # custom dash
+pip install -r pyobd_fork/requirements.txt   # forked pyobd
+```
+
 ## Project structure
 
 ```

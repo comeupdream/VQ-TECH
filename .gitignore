@@ -4,3 +4,6 @@ __pycache__/
 logs/*.csv
 tunes/*.bin
 .DS_Store
+pyobd_fork/__pycache__/
+pyobd_fork/*.log
+pyobd_fork/.pyobd
