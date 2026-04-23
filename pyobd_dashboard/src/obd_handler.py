@@ -4,6 +4,7 @@ from obd.utils import bytes_to_int
 import random
 import time
 import re
+import math
 
 class OBDHandler:
     def __init__(self, simulation=False, log_callback=None):
@@ -306,21 +307,82 @@ class OBDHandler:
         return False
 
     def _simulate_data(self, name):
-        if name == 'RUN_TIME': return int(time.time() - self.sim_start_time)
-        if name == 'BAROMETRIC_PRESSURE': return 101.3
-        if name == 'FUEL_LEVEL': return 75.0
-        if name == 'TIMING_ADVANCE': return random.randint(10, 25)
-        if name == 'SPEED': return random.randint(0, 120)
-        if name == 'RPM': return 800 + random.randint(0, 500)
+        """Realistic engine simulation with smooth, correlated sensor values."""
+        elapsed = time.time() - self.sim_start_time
 
-        ranges = {
-            'COOLANT_TEMP': (80, 105), 'CONTROL_MODULE_VOLTAGE': (13.8, 14.4),
-            'ENGINE_LOAD': (15, 80), 'THROTTLE_POS': (0, 100),
-            'INTAKE_TEMP': (20, 50), 'MAF': (2, 50)
-        }
+        # Initialize persistent sim state if needed
+        if not hasattr(self, '_sim_state'):
+            self._sim_state = {
+                'rpm': 800,
+                'speed': 0,
+                'throttle': 0,
+                'coolant_temp': 20,
+                'fuel_level': 100,
+                'last_update': elapsed
+            }
 
-        if name in ranges:
-            val = random.uniform(*ranges[name])
-            if name == 'CONTROL_MODULE_VOLTAGE': return round(val, 2)
-            return int(val) if val > 10 else round(val, 2)
-        return random.randint(0, 100)
+        # Update simulation state
+        state = self._sim_state
+        dt = min(elapsed - state['last_update'], 0.2)  # Cap delta time
+        state['last_update'] = elapsed
+
+        # Realistic throttle input (varies over time)
+        throttle_target = 10 + 70 * (0.5 + 0.5 * math.sin(elapsed / 5))
+        throttle_target += random.gauss(0, 5)
+        state['throttle'] = 0.9 * state['throttle'] + 0.1 * throttle_target
+        state['throttle'] = max(0, min(100, state['throttle']))
+
+        # RPM based on throttle (with inertia)
+        rpm_from_throttle = 800 + state['throttle'] * 65  # 800-6500 RPM range
+        rpm_acceleration = 2000 * (rpm_from_throttle - state['rpm']) / max(1, abs(rpm_from_throttle - state['rpm']) + 100)
+        state['rpm'] += rpm_acceleration * dt
+        state['rpm'] = max(700, min(7200, state['rpm']))
+
+        # Speed correlates with RPM (roughly 1 km/h per 50 RPM after idle)
+        speed_target = max(0, (state['rpm'] - 800) / 50)
+        state['speed'] = 0.85 * state['speed'] + 0.15 * speed_target
+        state['speed'] = max(0, min(200, state['speed']))
+
+        # Coolant temp gradually warms up
+        coolant_target = 85 + 15 * (state['rpm'] / 7200)  # 85-100°C depending on load
+        state['coolant_temp'] += (coolant_target - state['coolant_temp']) * 0.01 * dt
+        state['coolant_temp'] = max(20, min(110, state['coolant_temp']))
+
+        # Fuel consumption (0.1 L per hour at cruise, more under load)
+        fuel_burn_rate = 0.1 + 0.3 * (state['throttle'] / 100)
+        state['fuel_level'] -= fuel_burn_rate * dt / 3600
+        state['fuel_level'] = max(0, min(100, state['fuel_level']))
+
+        # Return sensor values based on current state
+        if name == 'RUN_TIME':
+            return int(elapsed)
+        elif name == 'RPM':
+            return int(state['rpm'])
+        elif name == 'SPEED':
+            return round(state['speed'], 1)
+        elif name == 'THROTTLE_POS':
+            return round(state['throttle'], 1)
+        elif name == 'COOLANT_TEMP':
+            return round(state['coolant_temp'], 1)
+        elif name == 'INTAKE_TEMP':
+            # Intake temp follows coolant with some variation
+            intake_base = state['coolant_temp'] - 30
+            return round(max(10, intake_base + random.gauss(0, 2)), 1)
+        elif name == 'ENGINE_LOAD':
+            # Load correlates with throttle and RPM
+            return round(state['throttle'] * (0.5 + 0.5 * state['rpm'] / 7200), 1)
+        elif name == 'TIMING_ADVANCE':
+            return round(8 + 15 * (state['rpm'] / 7200), 1)
+        elif name == 'FUEL_LEVEL':
+            return round(state['fuel_level'], 1)
+        elif name == 'MAF':
+            # MAF (Mass Air Flow) correlates with throttle and RPM
+            return round(3 + state['throttle'] * 0.4 + random.gauss(0, 0.5), 2)
+        elif name == 'CONTROL_MODULE_VOLTAGE':
+            # Battery voltage - roughly stable, slight ripple
+            return round(13.8 + 0.4 * random.random(), 2)
+        elif name == 'BAROMETRIC_PRESSURE':
+            return round(101.3 + random.gauss(0, 0.5), 1)
+        else:
+            # Default: return value in expected range based on name
+            return round(random.uniform(0, 100), 1)
