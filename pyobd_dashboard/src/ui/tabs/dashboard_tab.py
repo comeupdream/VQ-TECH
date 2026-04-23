@@ -6,7 +6,7 @@ from ui.widgets.analog_gauge import AnalogGauge
 
 # Danger threshold for each sensor (fraction of max range where red zone starts)
 DANGER_THRESHOLDS = {
-    "RPM": 0.87,              # Redline at ~6500 RPM (G37 VQ37VHR redline)
+    "RPM": 0.78,              # Redline at ~7000 RPM (G37 actual redline range)
     "SPEED": 1.0,             # No hard danger zone, goes to 100%
     "COOLANT_TEMP": 0.87,     # Danger at ~110°C (87% of 120 max)
     "INTAKE_TEMP": 0.75,      # Danger at high temps (cooler = better)

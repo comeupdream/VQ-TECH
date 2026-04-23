@@ -6,7 +6,7 @@ PRO_PACK_DIR = os.path.join(PROJECT_ROOT, "pro_packs")
 
 STANDARD_SENSORS = {
     "RPM": (
-        "Engine RPM", "", True, True, 7500,
+        "Engine RPM", "", True, True, 9000,
         "Revolutions Per Minute: How fast the engine crankshaft is spinning."
     ),
     "SPEED": (
