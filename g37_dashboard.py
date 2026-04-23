@@ -6,20 +6,19 @@ obd.logger.setLevel(obd.logging.DEBUG)
 
 print("Attempting to connect to HT500 on COM3...")
 
-# Force the correct Bluetooth-friendly settings
+# Correct connection syntax for your version
 connection = obd.OBD(
-    port="COM3",          # <-- changed to COM3
-    baudrate=38400,       # most reliable for Bluetooth ELM327
-    protocol=None,        # let it auto-detect
-    fast=False,           # important for Bluetooth stability
-    timeout=0.2           # give it a little more time
+    "COM3",               # positional port - this is the fix
+    baudrate=38400,
+    fast=False,
+    timeout=0.2
 )
 
 if not connection.is_connected():
     print("❌ Still could not connect.")
     print("Try these next:")
-    print("1. Make sure car ignition is fully ON (dash lights on)")
-    print("2. Unplug/replug the HT500 firmly")
+    print("1. Car ignition FULLY ON (dash lights lit)")
+    print("2. Unplug the HT500 and plug it back in firmly")
     print("3. Restart the script")
     exit()
 
