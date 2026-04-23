@@ -1,4 +1,4 @@
-"""Thin python-obd wrapper with async polling + demo mode."""
+"""python-obd wrapper with async polling, demo mode, Nissan Mode 22 routing."""
 import math
 import random
 import threading
@@ -8,6 +8,10 @@ from typing import Dict, Optional
 import obd
 
 from config.pids import STANDARD_PIDS, EXTENDED_PIDS
+
+
+NISSAN_ENGINE_TX = "7E0"
+NISSAN_ENGINE_RX = "7E8"
 
 
 class OBDClient:
@@ -22,18 +26,83 @@ class OBDClient:
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._commands = {**STANDARD_PIDS, **EXTENDED_PIDS}
+        self.supported: Dict[str, bool] = {k: True for k in self._commands}
+        self.last_probe_results: Dict[str, str] = {}
 
     def connect(self) -> bool:
         if self.demo:
             return True
         obd.logger.setLevel(obd.logging.WARNING)
-        self._conn = obd.OBD(portstr=self.port, baudrate=self.baudrate,
-                             fast=False, timeout=1.0)
-        if self._conn.is_connected():
-            for cmd in EXTENDED_PIDS.values():
-                self._conn.supported_commands.add(cmd)
-            return True
-        return False
+        self._conn = obd.OBD(
+            portstr=self.port, baudrate=self.baudrate,
+            protocol="6", fast=False, timeout=1.0,
+        )
+        if not self._conn.is_connected():
+            return False
+        for cmd in EXTENDED_PIDS.values():
+            self._conn.supported_commands.add(cmd)
+        self._configure_nissan()
+        return True
+
+    def _send_at(self, cmd: str) -> str:
+        """Send a raw AT command to the ELM adapter (best-effort)."""
+        if not self._conn or not self._conn.is_connected():
+            return ""
+        iface = getattr(self._conn, "interface", None)
+        if iface is None:
+            return ""
+        for attr in ("send_and_parse", "__send"):
+            fn = getattr(iface, attr, None) or getattr(
+                iface, f"_ELM327{attr}" if attr.startswith("__") else attr, None)
+            if callable(fn):
+                try:
+                    out = fn(cmd)
+                    return "" if out is None else str(out)
+                except Exception:
+                    continue
+        return ""
+
+    def _configure_nissan(self):
+        """Set up ELM327 for Infiniti/Nissan CAN + route Mode 22 to engine ECU."""
+        for at in (
+            "ATE0",     # echo off
+            "ATL0",     # linefeeds off
+            "ATS0",     # spaces off
+            "ATH0",     # headers off (python-obd expects this)
+            "ATCAF1",   # CAN auto-formatting on (handles PCI byte)
+            "ATSP6",    # force ISO 15765-4 CAN 11-bit 500 kbps
+            f"ATSH {NISSAN_ENGINE_TX}",    # target engine ECU directly
+            f"ATCRA {NISSAN_ENGINE_RX}",   # accept only engine ECU replies
+            "ATST32",   # timeout ~200 ms (32 * 4 ms)
+        ):
+            self._send_at(at)
+
+    def probe(self) -> Dict[str, str]:
+        """Query each PID once; mark supported/unsupported. Return status map."""
+        results: Dict[str, str] = {}
+        if self.demo:
+            for k in self._commands:
+                results[k] = "DEMO"
+                self.supported[k] = True
+            self.last_probe_results = results
+            return results
+        if not self._conn or not self._conn.is_connected():
+            return results
+        for key, cmd in self._commands.items():
+            try:
+                r = self._conn.query(cmd, force=True)
+                if r and not r.is_null() and r.value is not None:
+                    val = float(getattr(r.value, "magnitude", r.value))
+                    results[key] = f"OK  {val:.2f}"
+                    self.supported[key] = True
+                else:
+                    results[key] = "NO DATA"
+                    self.supported[key] = False
+            except Exception as e:
+                results[key] = f"ERR {type(e).__name__}"
+                self.supported[key] = False
+        self.last_probe_results = results
+        return results
 
     def start(self, interval: float = 0.1):
         self._stop.clear()
@@ -64,6 +133,8 @@ class OBDClient:
     def _poll_real(self) -> Dict[str, float]:
         out = {}
         for key, cmd in self._commands.items():
+            if not self.supported.get(key, True):
+                continue
             try:
                 r = self._conn.query(cmd, force=True)
                 if r and not r.is_null() and r.value is not None:

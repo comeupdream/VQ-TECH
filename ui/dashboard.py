@@ -4,7 +4,7 @@ from typing import List
 import dearpygui.dearpygui as dpg
 
 from config.pids import GAUGE_LAYOUT, STANDARD_PIDS, EXTENDED_PIDS
-from config.theme import ACCENT, MUTED, apply_global_theme
+from config.theme import ACCENT, ACCENT_2, DANGER, MUTED, WARN, apply_global_theme
 from core.datalogger import DataLogger
 from core.obd_client import OBDClient
 from core.tune_dumper import TuneDumper
@@ -26,6 +26,9 @@ class Dashboard:
         self._log_tag = dpg.generate_uuid()
         self._status_tag = dpg.generate_uuid()
         self._dump_log_tag = dpg.generate_uuid()
+        self._probe_table_tag = dpg.generate_uuid()
+        self._probe_status_tag = dpg.generate_uuid()
+        self._probe_row_tags: dict = {}
 
     def build(self):
         dpg.create_context()
@@ -41,6 +44,8 @@ class Dashboard:
                     self._build_gauges()
                 with dpg.tab(label="Live Graphs"):
                     self._build_graphs()
+                with dpg.tab(label="PID Probe"):
+                    self._build_probe()
                 with dpg.tab(label="Datalog / Tune"):
                     self._build_controls()
 
@@ -56,6 +61,9 @@ class Dashboard:
             dpg.add_spacer(width=40)
             dpg.add_text("STATUS:", color=MUTED)
             dpg.add_text("INITIALIZING", tag=self._status_tag, color=ACCENT)
+            dpg.add_spacer(width=40)
+            dpg.add_text("ECU: 7E0 / 7E8  |  ISO 15765-4 CAN 500k",
+                         color=MUTED)
         dpg.add_separator()
 
     def _build_gauges(self):
@@ -108,6 +116,81 @@ class Dashboard:
         with dpg.child_window(height=320, border=True):
             dpg.add_text("", tag=self._dump_log_tag, color=MUTED,
                          wrap=1400)
+
+    def _build_probe(self):
+        dpg.add_text(
+            "Query every PID once. OK = ECU responded, NO DATA = PID not "
+            "supported by this ECU firmware. Unsupported PIDs are skipped "
+            "in the main poll loop so the bus stays snappy.",
+            color=MUTED, wrap=1400)
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="Probe PIDs", callback=self._run_probe,
+                           tag="btn_probe", width=160)
+            dpg.add_button(label="Re-enable All",
+                           callback=self._reenable_all, width=160)
+            dpg.add_text("", tag=self._probe_status_tag, color=MUTED)
+        dpg.add_separator()
+        all_keys = list(STANDARD_PIDS.keys()) + list(EXTENDED_PIDS.keys())
+        with dpg.table(tag=self._probe_table_tag, header_row=True,
+                       resizable=True, policy=dpg.mvTable_SizingStretchProp,
+                       borders_innerH=True, borders_outerH=True,
+                       borders_innerV=True, borders_outerV=True):
+            dpg.add_table_column(label="PID")
+            dpg.add_table_column(label="Mode")
+            dpg.add_table_column(label="Status")
+            dpg.add_table_column(label="Last Value")
+            for key in all_keys:
+                mode = "22 (Nissan)" if key in EXTENDED_PIDS else "01"
+                with dpg.table_row():
+                    dpg.add_text(key)
+                    dpg.add_text(mode, color=MUTED)
+                    status_tag = dpg.generate_uuid()
+                    value_tag = dpg.generate_uuid()
+                    dpg.add_text("—", tag=status_tag, color=MUTED)
+                    dpg.add_text("—", tag=value_tag, color=MUTED)
+                    self._probe_row_tags[key] = (status_tag, value_tag)
+
+    def _run_probe(self):
+        dpg.set_value(self._probe_status_tag, "Probing...")
+        dpg.configure_item("btn_probe", enabled=False)
+        import threading
+        threading.Thread(target=self._probe_worker, daemon=True).start()
+
+    def _probe_worker(self):
+        results = self.client.probe()
+        ok = sum(1 for v in results.values() if v.startswith(("OK", "DEMO")))
+        total = len(results) or 1
+        for key, status in results.items():
+            if key not in self._probe_row_tags:
+                continue
+            status_tag, value_tag = self._probe_row_tags[key]
+            if status.startswith("OK"):
+                dpg.set_value(status_tag, "OK")
+                dpg.configure_item(status_tag, color=ACCENT)
+                dpg.set_value(value_tag, status[3:].strip())
+                dpg.configure_item(value_tag, color=ACCENT)
+            elif status.startswith("DEMO"):
+                dpg.set_value(status_tag, "DEMO")
+                dpg.configure_item(status_tag, color=WARN)
+                dpg.set_value(value_tag, "simulated")
+                dpg.configure_item(value_tag, color=MUTED)
+            elif status == "NO DATA":
+                dpg.set_value(status_tag, "NO DATA")
+                dpg.configure_item(status_tag, color=DANGER)
+                dpg.set_value(value_tag, "—")
+                dpg.configure_item(value_tag, color=MUTED)
+            else:
+                dpg.set_value(status_tag, status)
+                dpg.configure_item(status_tag, color=DANGER)
+        dpg.set_value(self._probe_status_tag,
+                      f"Done — {ok}/{total} PIDs responded.")
+        dpg.configure_item("btn_probe", enabled=True)
+
+    def _reenable_all(self):
+        for k in self.client.supported:
+            self.client.supported[k] = True
+        dpg.set_value(self._probe_status_tag,
+                      "All PIDs re-enabled in poll loop.")
 
     def _toggle_log(self):
         if self.logger.is_running:

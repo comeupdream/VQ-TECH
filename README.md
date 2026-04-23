@@ -76,6 +76,39 @@ python main.py --port COM5 --baud 38400
 
 ---
 
+## Mode 22 (Nissan extended) routing
+
+Cheap ELM327 clones often ignore Mode 22 requests. A **genuine ELM327 v1.5
+adapter (e.g. HT500)** handles them fine — but it still needs to route
+the request to the Infiniti engine ECU explicitly.
+
+On connect, `OBDClient._configure_nissan()` sends:
+
+```
+ATSP6         force ISO 15765-4 CAN 11-bit 500 kbps
+ATSH 7E0      set request header to engine ECU
+ATCRA 7E8     filter replies to engine ECU only
+ATCAF1        CAN auto-formatting on
+ATST32        ~200 ms response timeout
+```
+
+This is what makes VVEL / AFR / knock / oil temp / injector PW work
+on the VQ37VHR without a K+DCAN cable.
+
+## PID Probe tab
+
+Before driving, open the **PID Probe** tab and click **Probe PIDs**.
+Every PID is queried once and the table shows:
+
+| Status | Meaning |
+|---|---|
+| `OK <value>` | ECU responded — gauge will work. |
+| `NO DATA` | ECU doesn't expose that address (or scaling key is off by one). Auto-skipped in the main poll loop. |
+| `ERR <type>` | Bus / adapter error. |
+
+Use **Re-enable All** if you edit `config/pids.py` and want the poll
+loop to retry everything without reconnecting.
+
 ## G37-specific extended (Mode 22) PIDs
 
 The ECU exposes standard OBD-II PIDs (Mode 01) plus Nissan-proprietary
