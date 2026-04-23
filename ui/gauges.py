@@ -32,7 +32,9 @@ class Gauge:
         self._val_tag = 0
         self._needle_tag = 0
         self._segment_tags: List[int] = []
-        self._last_frac: float = -1.0
+        self._target_frac: float = 0.0
+        self._display_frac: float = 0.0
+        self._target_value: Optional[float] = None
 
     def _angle(self, frac: float) -> float:
         return math.radians(self.START_DEG +
@@ -102,21 +104,29 @@ class Gauge:
                         parent=self._draw_tag)
 
     def update(self, value: Optional[float]):
+        """Called when new polled data arrives — sets the target only."""
+        self._target_value = value
         if value is None:
-            if self._last_frac != 0.0:
-                for tag in self._segment_tags:
-                    dpg.configure_item(tag, color=(60, 70, 80, 255),
-                                       thickness=3)
-                p_tip = self._pt(0.0, self.RADIUS - 10)
-                dpg.configure_item(self._needle_tag,
-                                   p1=(self.CENTER, self.CENTER), p2=p_tip)
-                self._last_frac = 0.0
-            dpg.set_value(self._val_tag, "--")
-            return
+            self._target_frac = 0.0
+        else:
+            span = self.vmax - self.vmin or 1.0
+            clamped = max(self.vmin, min(self.vmax, value))
+            self._target_frac = (clamped - self.vmin) / span
 
+    def render(self, lerp: float = 0.18):
+        """Called every UI frame — animates needle smoothly toward target.
+
+        lerp in (0,1]: higher = snappier. 0.18 at 60 FPS settles in ~15
+        frames (~250 ms) which feels alive without jitter.
+        """
+        delta = self._target_frac - self._display_frac
+        if abs(delta) < 0.001:
+            self._display_frac = self._target_frac
+        else:
+            self._display_frac += delta * lerp
+
+        frac = self._display_frac
         span = self.vmax - self.vmin or 1.0
-        clamped = max(self.vmin, min(self.vmax, value))
-        frac = (clamped - self.vmin) / span
         danger_frac = max(0.0, min(1.0, (self.danger_above - self.vmin) / span))
         warn_frac = max(0.0, danger_frac - 0.15)
 
@@ -136,5 +146,8 @@ class Gauge:
         p_tip = self._pt(frac, self.RADIUS - 10)
         dpg.configure_item(self._needle_tag,
                            p1=(self.CENTER, self.CENTER), p2=p_tip)
-        dpg.set_value(self._val_tag, self._fmt_value(value))
-        self._last_frac = frac
+
+        if self._target_value is None:
+            dpg.set_value(self._val_tag, "--")
+        else:
+            dpg.set_value(self._val_tag, self._fmt_value(self._target_value))

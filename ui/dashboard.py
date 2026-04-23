@@ -227,16 +227,18 @@ class Dashboard:
 
     def tick(self):
         version = self.client.version()
-        if version == self._last_version:
-            return
-        self._last_version = version
-        snap = self.client.snapshot()
-        dpg.set_value(self._status_tag,
-                      "DEMO" if self.client.demo else "CONNECTED")
+        if version != self._last_version:
+            self._last_version = version
+            snap = self.client.snapshot()
+            dpg.set_value(self._status_tag,
+                          "DEMO" if self.client.demo else "CONNECTED")
+            for g in self.gauges:
+                g.update(snap.get(g.key))
+            for lg in self.graphs:
+                lg.push(snap)
+        # Always render — needles animate smoothly toward the latest target.
         for g in self.gauges:
-            g.update(snap.get(g.key))
-        for lg in self.graphs:
-            lg.push(snap)
+            g.render()
 
     def run(self):
         while dpg.is_dearpygui_running():

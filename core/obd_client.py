@@ -13,6 +13,17 @@ from config.pids import STANDARD_PIDS, EXTENDED_PIDS
 NISSAN_ENGINE_TX = "7E0"
 NISSAN_ENGINE_RX = "7E8"
 
+# Tiered polling: fast keys every cycle, medium every 3rd, slow every 10th.
+# Keeps RPM/throttle responsive while temps and trims still refresh.
+FAST_KEYS = {"RPM", "SPEED", "THROTTLE", "TIMING_ADV", "LOAD", "MAF",
+             "MAP", "MAF_V"}
+MED_KEYS = {"STFT_B1", "LTFT_B1", "STFT_B2", "LTFT_B2",
+            "AFR_B1", "AFR_B2", "KNOCK_CORR",
+            "VVEL_B1", "VVEL_B2", "CAM_ADV_B1", "CAM_ADV_B2",
+            "INJ_PW_B1", "INJ_PW_B2", "O2_B1S1", "O2_B2S1"}
+SLOW_KEYS = {"COOLANT", "INTAKE_TEMP", "OIL_TEMP", "BATT_V",
+             "FUEL_PRESSURE"}
+
 
 class OBDClient:
     def __init__(self, port: Optional[str] = None, baudrate: int = 38400,
@@ -29,6 +40,7 @@ class OBDClient:
         self.supported: Dict[str, bool] = {k: True for k in self._commands}
         self.last_probe_results: Dict[str, str] = {}
         self._version: int = 0
+        self._cycle: int = 0
 
     def connect(self) -> bool:
         if self.demo:
@@ -44,7 +56,24 @@ class OBDClient:
         for cmd in EXTENDED_PIDS.values():
             self._conn.supported_commands.add(cmd)
         self._configure_nissan()
+        self._auto_gate_mode22()
         return True
+
+    def _auto_gate_mode22(self):
+        """One-shot probe: if the adapter doesn't answer a Mode 22 query,
+        disable every Mode 22 PID so the poll loop stops wasting seconds
+        on guaranteed timeouts (cheap ELM327 clones, v1.3a, etc.)."""
+        probe_cmd = EXTENDED_PIDS.get("AFR_B1")
+        if probe_cmd is None:
+            return
+        try:
+            r = self._conn.query(probe_cmd, force=True)
+            ok = r and not r.is_null() and r.value is not None
+        except Exception:
+            ok = False
+        if not ok:
+            for key in EXTENDED_PIDS:
+                self.supported[key] = False
 
     def _send_at(self, cmd: str) -> str:
         """Send a raw AT command to the ELM adapter (best-effort)."""
@@ -138,8 +167,14 @@ class OBDClient:
 
     def _poll_real(self) -> Dict[str, float]:
         out = {}
+        self._cycle += 1
         for key, cmd in self._commands.items():
             if not self.supported.get(key, True):
+                continue
+            # Tiered rate limiting — favour hot gauges over temps/trims.
+            if key in SLOW_KEYS and (self._cycle % 10) != 0:
+                continue
+            if key in MED_KEYS and (self._cycle % 3) != 0:
                 continue
             try:
                 r = self._conn.query(cmd, force=True)
