@@ -4,6 +4,26 @@ from ui.tooltip import ToolTip
 from ui.theme import ThemeManager
 from ui.widgets.analog_gauge import AnalogGauge
 
+# Danger threshold for each sensor (fraction of max range where red zone starts)
+DANGER_THRESHOLDS = {
+    "RPM": 0.85,              # Redline at 85%+ of max RPM
+    "SPEED": 1.0,             # No hard danger zone, goes to 100%
+    "COOLANT_TEMP": 0.87,     # Danger at ~110°C (87% of 120 max)
+    "INTAKE_TEMP": 0.75,      # Danger at high temps (cooler = better)
+    "ENGINE_LOAD": 0.85,      # High load at 85%+
+    "THROTTLE_POS": 1.0,      # No danger zone
+    "MAF": 0.80,              # High airflow = danger zone
+    "FUEL_LEVEL": 0.15,       # Red when low (reverse: <15%)
+    "TIMING_ADVANCE": 0.90,   # High timing = danger
+    "BAROMETRIC_PRESSURE": 1.0,  # No danger zone
+    "RUN_TIME": 1.0,          # No danger zone
+    "CONTROL_MODULE_VOLTAGE": 0.90  # Danger at high voltage
+}
+
+def get_danger_threshold(sensor_name):
+    """Get appropriate danger threshold for a sensor."""
+    return DANGER_THRESHOLDS.get(sensor_name, 0.85)  # Default to 0.85 if unknown
+
 class DashboardTab:
     def __init__(self, parent_frame, app_instance):
         self.frame = parent_frame
@@ -115,13 +135,17 @@ class DashboardTab:
             gauge_frame = ctk.CTkFrame(container, fg_color="transparent")
             gauge_frame.pack(pady=5)
 
+            # Get sensor-specific danger threshold
+            danger_thresh = get_danger_threshold(cmd)
+
             gauge = AnalogGauge(
                 gauge_frame,
                 width=180,
                 height=180,
                 min_val=0,
                 max_val=limit,
-                unit=state['unit']
+                unit=state['unit'],
+                danger_threshold=danger_thresh
             )
             gauge.pack(side="left", padx=5)
 
