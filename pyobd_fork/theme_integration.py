@@ -4,6 +4,7 @@ This module provides functions to integrate the theme system into the existing p
 """
 import wx
 from theme_manager import ThemeManager
+from themes import get_theme
 
 
 def setup_theme_menu(app_instance, menu_bar):
@@ -15,7 +16,7 @@ def setup_theme_menu(app_instance, menu_bar):
 
     for idx, theme_name in enumerate(theme_names):
         menu_id = wx.NewIdRef()
-        display_name = theme_manager.get_theme(theme_name)['name']
+        display_name = get_theme(theme_name)['name']
         item = theme_menu.Append(menu_id, display_name, kind=wx.ITEM_RADIO)
 
         # Check the current theme
@@ -55,7 +56,7 @@ def create_theme_button_panel(parent, app_instance):
     theme_names = theme_manager.get_all_theme_names()
 
     for theme_name in theme_names:
-        display_name = theme_manager.get_theme(theme_name)['name'].split()[0]
+        display_name = get_theme(theme_name)['name'].split()[0]
         btn = wx.Button(panel, -1, display_name)
         btn.Bind(wx.EVT_BUTTON,
                 lambda evt, tn=theme_name: app_instance.OnThemeChange(tn))
