@@ -1,7 +1,7 @@
 """Version information for VQ-TECH PyOBD Dashboard."""
 
-VERSION = "2.0.1"
-BUILD = "Racing Edition - Analog Gauges with Digital Display"
+VERSION = "2.0.2"
+BUILD = "Racing Edition - Analog Gauges with Digital Display + Auto-Versioning"
 
 def get_version_string():
     """Return formatted version string."""
