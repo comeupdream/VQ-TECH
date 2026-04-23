@@ -129,7 +129,7 @@ class DashboardTab:
             digital_label = ctk.CTkLabel(
                 gauge_frame,
                 text="--",
-                font=("Arial", 20, "bold"),
+                font=("Arial", 80, "bold"),
                 text_color=ThemeManager.get("ACCENT")
             )
             digital_label.pack(side="left", padx=(10, 5), fill="both", expand=True)
