@@ -84,7 +84,7 @@ class DashboardTab:
         end_idx = start_idx + self.items_per_page
         page_sensors = active_sensors[start_idx:end_idx]
 
-        cols = 3
+        cols = 2
         for i, cmd in enumerate(page_sensors):
             row = i // cols;
             col = i % cols
@@ -145,7 +145,6 @@ class DashboardTab:
 
         self.dash_scroll.grid_columnconfigure(0, weight=1)
         self.dash_scroll.grid_columnconfigure(1, weight=1)
-        self.dash_scroll.grid_columnconfigure(2, weight=1)
 
     def next_page(self):
         if self.current_page < self.total_pages - 1:

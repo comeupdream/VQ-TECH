@@ -26,31 +26,31 @@ STANDARD_SENSORS = {
         "Calculated Load Value: How hard the engine is working relative to its maximum capacity."
     ),
     "THROTTLE_POS": (
-        "Throttle Pos", "%", False, True, 100,
+        "Throttle Pos", "%", True, True, 100,
         "Throttle Position: How far the gas pedal or throttle plate is open."
     ),
     "INTAKE_TEMP": (
-        "Intake Air Temp", "°C", False, False, 80,
+        "Intake Air Temp", "°C", True, False, 80,
         "Intake Air Temperature (IAT): The temperature of air entering the engine. Cooler air makes more power."
     ),
     "MAF": (
-        "MAF Air Flow", "g/s", False, False, 200,
+        "MAF Air Flow", "g/s", True, False, 200,
         "Mass Air Flow: The exact weight of air entering the engine. Used to calculate fuel injection."
     ),
     "FUEL_LEVEL": (
-        "Fuel Level", "%", False, False, 100,
+        "Fuel Level", "%", True, False, 100,
         "Fuel Tank Level percentage."
     ),
     "BAROMETRIC_PRESSURE": (
-        "Barometric", "kPa", False, False, 200,
+        "Barometric", "kPa", True, False, 200,
         "Atmospheric Pressure: Varies based on weather and altitude."
     ),
     "TIMING_ADVANCE": (
-        "Timing Adv", "°", False, False, 60,
+        "Timing Adv", "°", True, False, 60,
         "Ignition Timing Advance: The angle relative to Top Dead Center (TDC) when the spark plug fires. Higher values mean earlier spark."
     ),
     "RUN_TIME": (
-        "Run Time", "sec", False, False, 3600,
+        "Run Time", "sec", True, False, 3600,
         "Time elapsed since the engine was started."
     )
 }
