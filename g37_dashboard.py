@@ -1,8 +1,8 @@
 import obd
 import time
 
-# Connect to your HT500 on COM4
-connection = obd.OBD("COM4")   # <-- this is the key line
+# Connect to your HT500 on COM3
+connection = obd.OBD("COM3")   # <-- this is the key line
 
 if not connection.is_connected():
     print("❌ Could not connect - double-check dongle is plugged in and car is ON")
