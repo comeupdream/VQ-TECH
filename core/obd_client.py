@@ -28,6 +28,7 @@ class OBDClient:
         self._commands = {**STANDARD_PIDS, **EXTENDED_PIDS}
         self.supported: Dict[str, bool] = {k: True for k in self._commands}
         self.last_probe_results: Dict[str, str] = {}
+        self._version: int = 0
 
     def connect(self) -> bool:
         if self.demo:
@@ -122,12 +123,16 @@ class OBDClient:
         with self._lock:
             return dict(self._values)
 
+    def version(self) -> int:
+        return self._version
+
     def _loop(self, interval: float):
         while not self._stop.is_set():
             t0 = time.time()
             new = self._poll_demo() if self.demo else self._poll_real()
             with self._lock:
                 self._values.update(new)
+                self._version += 1
             elapsed = time.time() - t0
             time.sleep(max(0.0, interval - elapsed))
 

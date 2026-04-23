@@ -31,6 +31,7 @@ class Dashboard:
         self._probe_table_tag = 0
         self._probe_status_tag = 0
         self._probe_row_tags: dict = {}
+        self._last_version: int = -1
 
     def build(self):
         dpg.create_context()
@@ -225,6 +226,10 @@ class Dashboard:
         self._append_dump_log(msg)
 
     def tick(self):
+        version = self.client.version()
+        if version == self._last_version:
+            return
+        self._last_version = version
         snap = self.client.snapshot()
         dpg.set_value(self._status_tag,
                       "DEMO" if self.client.demo else "CONNECTED")
