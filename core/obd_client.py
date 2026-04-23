@@ -35,7 +35,8 @@ class OBDClient:
         obd.logger.setLevel(obd.logging.WARNING)
         self._conn = obd.OBD(
             portstr=self.port, baudrate=self.baudrate,
-            protocol="6", fast=False, timeout=1.0,
+            protocol="6", fast=False, timeout=2.0,
+            check_voltage=False,
         )
         if not self._conn.is_connected():
             return False
