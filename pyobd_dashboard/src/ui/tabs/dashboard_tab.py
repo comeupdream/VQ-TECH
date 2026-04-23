@@ -13,20 +13,23 @@ DANGER_THRESHOLDS = {
     "ENGINE_LOAD": 0.85,      # High load at 85%+
     "THROTTLE_POS": 1.0,      # No danger zone
     "MAF": 0.80,              # High airflow = danger zone
-    "FUEL_LEVEL": 0.15,       # Red when low (reverse: <15%)
+    "FUEL_LEVEL": 0.15,       # Red when LOW: danger zone is 0-15%
     "TIMING_ADVANCE": 0.90,   # High timing = danger
     "BAROMETRIC_PRESSURE": 1.0,  # No danger zone
     "RUN_TIME": 1.0,          # No danger zone
     "CONTROL_MODULE_VOLTAGE": 0.90,  # Danger at high voltage
     "OIL_TEMP": 0.85,         # Danger at ~110°C (overheating)
-    "SHORT_FUEL_TRIM_1": 0.80,  # +/-20% is concerning
-    "LONG_FUEL_TRIM_1": 0.80,   # +/-20% indicates fuel issues
+    "SHORT_FUEL_TRIM_1": 0.80,  # Danger at extreme values
+    "LONG_FUEL_TRIM_1": 0.80,   # Danger at extreme values
     "FUEL_PRESSURE": 1.0,     # Depends on engine, no default danger
     "RELATIVE_THROTTLE_POS": 1.0,  # No danger zone
     "DISTANCE_W_MIL": 0.01,   # ANY distance with MIL is concerning
     "DISTANCE_SINCE_DTC_CLEAR": 1.0,  # Info only
     "ABSOLUTE_LOAD": 0.85     # High absolute load = stress
 }
+
+# Reverse metrics: danger zone is BELOW threshold, not above
+REVERSE_METRICS = {"FUEL_LEVEL"}
 
 def get_danger_threshold(sensor_name):
     """Get appropriate danger threshold for a sensor."""
@@ -145,6 +148,7 @@ class DashboardTab:
 
             # Get sensor-specific danger threshold
             danger_thresh = get_danger_threshold(cmd)
+            is_reverse = cmd in REVERSE_METRICS
 
             gauge = AnalogGauge(
                 gauge_frame,
@@ -153,7 +157,8 @@ class DashboardTab:
                 min_val=0,
                 max_val=limit,
                 unit=state['unit'],
-                danger_threshold=danger_thresh
+                danger_threshold=danger_thresh,
+                is_reverse=is_reverse
             )
             gauge.pack(side="left", padx=5)
 

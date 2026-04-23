@@ -6,14 +6,15 @@ from ui.theme import ThemeManager
 class AnalogGauge(ctk.CTkFrame):
     """Racing-style analog gauge with needle, markers, and tick marks."""
 
-    def __init__(self, parent, width=180, height=180, min_val=0, max_val=100, unit="", danger_threshold=0.85):
+    def __init__(self, parent, width=180, height=180, min_val=0, max_val=100, unit="", danger_threshold=0.85, is_reverse=False):
         super().__init__(parent, width=width, height=height, fg_color="transparent")
 
         self.min_val = min_val
         self.max_val = max_val
         self.unit = unit
         self.current_value = min_val
-        self.danger_threshold = danger_threshold  # Red zone starts at this fraction
+        self.danger_threshold = danger_threshold  # Red zone threshold
+        self.is_reverse = is_reverse  # Danger zone is BELOW threshold (not above)
 
         self.canvas = tk.Canvas(
             self,
@@ -52,9 +53,15 @@ class AnalogGauge(ctk.CTkFrame):
             width=2
         )
 
-        # Danger zone arc (red area starting at danger_threshold)
-        danger_start_angle = self.start_angle - (self.danger_threshold * self.sweep_range)
-        danger_extent = -int(self.sweep_range * (1 - self.danger_threshold))
+        # Danger zone arc (red area at threshold boundary)
+        if self.is_reverse:
+            # Reverse metric (e.g., fuel level): danger from 0 to threshold
+            danger_start_angle = self.start_angle
+            danger_extent = -int(self.sweep_range * self.danger_threshold)
+        else:
+            # Normal metric: danger from threshold to max
+            danger_start_angle = self.start_angle - (self.danger_threshold * self.sweep_range)
+            danger_extent = -int(self.sweep_range * (1 - self.danger_threshold))
 
         self.danger_arc = self.canvas.create_arc(
             self.center_x - self.radius,
@@ -197,7 +204,9 @@ class AnalogGauge(ctk.CTkFrame):
             # Update needle color based on danger threshold
             needle_color = ThemeManager.get("ACCENT")
             text_color = ThemeManager.get("ACCENT")
-            if pct >= self.danger_threshold:
+
+            is_in_danger = pct >= self.danger_threshold if not self.is_reverse else pct <= self.danger_threshold
+            if is_in_danger:
                 needle_color = ThemeManager.get("WARNING")
                 text_color = ThemeManager.get("WARNING")
 
