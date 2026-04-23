@@ -111,18 +111,32 @@ class DashboardTab:
             )
             lbl_title.pack(pady=(10, 0))
 
+            # Gauge and digital readout in a horizontal frame
+            gauge_frame = ctk.CTkFrame(container, fg_color="transparent")
+            gauge_frame.pack(pady=5)
+
             gauge = AnalogGauge(
-                container,
+                gauge_frame,
                 width=180,
                 height=180,
                 min_val=0,
                 max_val=limit,
                 unit=state['unit']
             )
-            gauge.pack(pady=5)
+            gauge.pack(side="left", padx=5)
+
+            # Digital readout label on the right
+            digital_label = ctk.CTkLabel(
+                gauge_frame,
+                text="--",
+                font=("Arial", 20, "bold"),
+                text_color=ThemeManager.get("ACCENT")
+            )
+            digital_label.pack(side="left", padx=(10, 5), fill="both", expand=True)
 
             state["card_widget"] = container
             state["widget_progress_bar"] = gauge
+            state["widget_digital_label"] = digital_label
 
             tooltip_text = state.get("description", state['name'])
             ToolTip(container, text=tooltip_text, delay=1000)

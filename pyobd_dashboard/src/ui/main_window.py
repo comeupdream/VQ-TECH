@@ -200,13 +200,14 @@ class DashboardApp(ctk.CTk):
                 card = old_state[cmd].get("card_widget", None)
                 val_lbl = old_state[cmd].get("widget_value_label", None)
                 bar = old_state[cmd].get("widget_progress_bar", None)
+                digital_lbl = old_state[cmd].get("widget_digital_label", None)
                 title = old_state[cmd].get("widget_title_label", None)
             else:
                 saved = saved_sensors.get(cmd, {})
                 is_show = saved.get("show", def_show)
                 is_log = saved.get("log", def_log)
                 limit_val = str(saved.get("limit", def_limit))
-                card, val_lbl, bar, title = None, None, None, None
+                card, val_lbl, bar, digital_lbl, title = None, None, None, None, None
 
             self.sensor_state[cmd] = {
                 "name": name, "unit": unit,
@@ -217,6 +218,7 @@ class DashboardApp(ctk.CTk):
                 "card_widget": card,
                 "widget_value_label": val_lbl,
                 "widget_progress_bar": bar,
+                "widget_digital_label": digital_lbl,
                 "widget_title_label": title
             }
 
@@ -347,6 +349,9 @@ class DashboardApp(ctk.CTk):
                 bar = state.get('widget_progress_bar')
                 if bar and hasattr(bar, 'update_value'):
                     bar.update_value(0)
+                digital_label = state.get('widget_digital_label')
+                if digital_label:
+                    digital_label.configure(text="--")
 
     def change_log_folder(self):
         new_dir = filedialog.askdirectory()
@@ -541,11 +546,27 @@ class DashboardApp(ctk.CTk):
 
                     state = self.sensor_state.get(cmd)
                     if state and state["show_var"].get():
+                        # Apply km/h to mph conversion for SPEED
+                        display_val = val
+                        if cmd == "SPEED" and state["unit"] == "km/h":
+                            display_val = val * 0.621371  # km/h to mph
+
                         gauge = state.get("widget_progress_bar")
+                        digital_label = state.get("widget_digital_label")
 
                         if gauge and hasattr(gauge, 'update_value'):
                             if gauge.winfo_ismapped():
-                                gauge.update_value(val)
+                                gauge.update_value(display_val)
+
+                        # Update digital readout label
+                        if digital_label:
+                            if isinstance(display_val, float) and abs(display_val) < 10:
+                                text_str = f"{display_val:.1f}"
+                            else:
+                                text_str = str(int(display_val))
+                            if state["unit"]:
+                                text_str += f"\n{state['unit']}"
+                            digital_label.configure(text=text_str)
 
             if self.tabview.get() == "Live Graph":
                 self.ui_graph.update()
