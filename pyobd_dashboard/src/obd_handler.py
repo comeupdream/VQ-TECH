@@ -383,6 +383,30 @@ class OBDHandler:
             return round(13.8 + 0.4 * random.random(), 2)
         elif name == 'BAROMETRIC_PRESSURE':
             return round(101.3 + random.gauss(0, 0.5), 1)
+        elif name == 'OIL_TEMP':
+            # Oil temp follows coolant but lags slightly (hotter)
+            oil_temp = state['coolant_temp'] + 5 + random.gauss(0, 1)
+            return round(max(20, oil_temp), 1)
+        elif name == 'SHORT_FUEL_TRIM_1':
+            # STFT oscillates around 0, -10 to +10 typical
+            return round(random.gauss(0, 3), 1)
+        elif name == 'LONG_FUEL_TRIM_1':
+            # LTFT is more stable, learned over time
+            return round(random.gauss(2, 1), 1)
+        elif name == 'FUEL_PRESSURE':
+            # Fuel pressure stable when running
+            return round(350 + random.gauss(0, 10), 1)
+        elif name == 'RELATIVE_THROTTLE_POS':
+            # Relative throttle tracks absolute throttle
+            return round(state['throttle'], 1)
+        elif name == 'DISTANCE_W_MIL':
+            return 0  # No check engine in demo
+        elif name == 'DISTANCE_SINCE_DTC_CLEAR':
+            # Simulate some distance since last clear
+            return int(elapsed * 0.01)  # slow accumulator
+        elif name == 'ABSOLUTE_LOAD':
+            # Absolute load similar to engine load
+            return round(state['throttle'] * 0.8 + random.gauss(0, 2), 1)
         else:
             # Default: return value in expected range based on name
             return round(random.uniform(0, 100), 1)

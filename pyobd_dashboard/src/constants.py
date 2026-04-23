@@ -52,6 +52,38 @@ STANDARD_SENSORS = {
     "RUN_TIME": (
         "Run Time", "sec", True, False, 3600,
         "Time elapsed since the engine was started."
+    ),
+    "OIL_TEMP": (
+        "Oil Temp", "°C", True, True, 130,
+        "Engine Oil Temperature: Normal range 90-110°C. Above 120°C indicates overheating."
+    ),
+    "SHORT_FUEL_TRIM_1": (
+        "ST Fuel Trim B1", "%", True, True, 25,
+        "Short Term Fuel Trim Bank 1: ECU's real-time fuel mixture adjustment. Range -25 to +25%."
+    ),
+    "LONG_FUEL_TRIM_1": (
+        "LT Fuel Trim B1", "%", True, True, 25,
+        "Long Term Fuel Trim Bank 1: ECU's learned fuel mixture adjustment. Range -25 to +25%."
+    ),
+    "FUEL_PRESSURE": (
+        "Fuel Pressure", "kPa", True, False, 600,
+        "Fuel Rail Pressure: Normal operating pressure varies by engine. Too low = fuel starvation."
+    ),
+    "RELATIVE_THROTTLE_POS": (
+        "Rel Throttle", "%", True, False, 100,
+        "Relative Throttle Position: Current throttle angle relative to closed position."
+    ),
+    "DISTANCE_W_MIL": (
+        "Dist w/ MIL", "km", True, False, 100,
+        "Distance traveled with Malfunction Indicator Light (Check Engine) ON."
+    ),
+    "DISTANCE_SINCE_DTC_CLEAR": (
+        "Dist Since Clear", "km", True, False, 1000,
+        "Distance traveled since Diagnostic Trouble Codes were last cleared."
+    ),
+    "ABSOLUTE_LOAD": (
+        "Absolute Load", "%", True, False, 100,
+        "Absolute Engine Load: Percentage of max possible engine load."
     )
 }
 

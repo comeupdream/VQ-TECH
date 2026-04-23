@@ -17,7 +17,15 @@ DANGER_THRESHOLDS = {
     "TIMING_ADVANCE": 0.90,   # High timing = danger
     "BAROMETRIC_PRESSURE": 1.0,  # No danger zone
     "RUN_TIME": 1.0,          # No danger zone
-    "CONTROL_MODULE_VOLTAGE": 0.90  # Danger at high voltage
+    "CONTROL_MODULE_VOLTAGE": 0.90,  # Danger at high voltage
+    "OIL_TEMP": 0.85,         # Danger at ~110°C (overheating)
+    "SHORT_FUEL_TRIM_1": 0.80,  # +/-20% is concerning
+    "LONG_FUEL_TRIM_1": 0.80,   # +/-20% indicates fuel issues
+    "FUEL_PRESSURE": 1.0,     # Depends on engine, no default danger
+    "RELATIVE_THROTTLE_POS": 1.0,  # No danger zone
+    "DISTANCE_W_MIL": 0.01,   # ANY distance with MIL is concerning
+    "DISTANCE_SINCE_DTC_CLEAR": 1.0,  # Info only
+    "ABSOLUTE_LOAD": 0.85     # High absolute load = stress
 }
 
 def get_danger_threshold(sensor_name):
