@@ -23,15 +23,22 @@ class Dashboard:
         self.logger = DataLogger(
             list(STANDARD_PIDS.keys()) + list(EXTENDED_PIDS.keys()))
         self.dumper = TuneDumper()
+        # Tag generation is deferred to build() because DPG 2.x requires
+        # create_context() before generate_uuid() is legal.
+        self._log_tag = 0
+        self._status_tag = 0
+        self._dump_log_tag = 0
+        self._probe_table_tag = 0
+        self._probe_status_tag = 0
+        self._probe_row_tags: dict = {}
+
+    def build(self):
+        dpg.create_context()
         self._log_tag = dpg.generate_uuid()
         self._status_tag = dpg.generate_uuid()
         self._dump_log_tag = dpg.generate_uuid()
         self._probe_table_tag = dpg.generate_uuid()
         self._probe_status_tag = dpg.generate_uuid()
-        self._probe_row_tags: dict = {}
-
-    def build(self):
-        dpg.create_context()
         dpg.create_viewport(title="VQ-TECH — G37 VQ37VHR Dashboard",
                             width=1600, height=950)
         apply_global_theme()
