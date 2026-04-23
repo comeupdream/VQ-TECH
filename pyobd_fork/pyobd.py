@@ -74,7 +74,12 @@ import obd
 
 from obd.utils import OBDStatus
 
-
+try:
+    from theme_manager import ThemeManager
+    from theme_integration import setup_theme_menu, apply_theme_to_frame
+    THEMING_AVAILABLE = True
+except ImportError:
+    THEMING_AVAILABLE = False
 
 
 ID_ABOUT = 101
@@ -2518,6 +2523,11 @@ class MyApp(wx.App):
         ico = wx.Icon(resource_path('pyobd.ico'), wx.BITMAP_TYPE_ICO)
         self.frame.SetIcon(ico)
 
+        # Initialize theme system
+        if THEMING_AVAILABLE:
+            self.theme_manager = ThemeManager('tron')
+            apply_theme_to_frame(self.frame, self.theme_manager)
+
         EVT_RESULT(self, self.OnResult, EVT_RESULT_ID)
         EVT_RESULT(self, self.OnDebug, EVT_DEBUG_ID)
         EVT_RESULT(self, self.OnDtc, EVT_DTC_ID)
@@ -2642,6 +2652,10 @@ class MyApp(wx.App):
         self.menuBar.Append(self.settingmenu, "&OBD-II")
         self.menuBar.Append(self.dtcmenu, "&Trouble codes")
         self.menuBar.Append(self.helpmenu, "&Help")
+
+        # Add theme menu if theming is available
+        if THEMING_AVAILABLE:
+            setup_theme_menu(self, self.menuBar)
 
         self.frame.SetMenuBar(self.menuBar)  # Adding the MenuBar to the Frame content.
 
@@ -2851,6 +2865,13 @@ the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  0211
         self.combobox8_7_selection = self.combobox8_7.SetSelection(7)
         self.combobox8_8_selection = self.combobox8_8.SetSelection(8)
         self.combobox_graphs8_set_sel_finished = True
+
+    def OnThemeChange(self, theme_name):
+        """Handle theme change event."""
+        if THEMING_AVAILABLE and hasattr(self, 'theme_manager'):
+            self.theme_manager.set_theme(theme_name)
+            apply_theme_to_frame(self.frame, self.theme_manager)
+
     def OnClose(self, event):
 
         #while self.senprod.state != "finished":
