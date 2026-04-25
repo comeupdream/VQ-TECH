@@ -42,11 +42,24 @@ class TuneDumper:
         f.close()
         return f.name
 
+    def _device_for_size(self):
+        """Map ROM size in KB to nisprog setdev value."""
+        return {256: "7051", 512: "7055", 1024: "7058"}.get(self.rom_size_kb, "7058")
+
+    def _common_setup(self):
+        """Commands to configure nisprog before any connection."""
+        return [
+            f"setdev {self._device_for_size()}",
+            "set interface DUMB",
+            f"set port {self.port}",
+        ]
+
     def read_ecu_id(self, on_log: Callable[[str], None],
                     on_done: Callable[[bool, str], None]):
-        """Read ECU ID via standard diagnostic protocol. No kernel upload required.
+        """Standard Nissan diagnostic connect to read ECU ID. No kernel needed.
 
-        Useful for identifying the ECU hardware before sourcing a matching kernel.
+        npconn establishes the basic K-Line diagnostic session and prints the
+        ECU's identifier strings. We disconnect immediately after.
         """
         if self._thread and self._thread.is_alive():
             on_log("Operation already in progress.")
@@ -56,14 +69,9 @@ class TuneDumper:
         self._thread.start()
 
     def _run_ecu_id(self, on_log, on_done):
-        # No kernel, no npconn - just initialize and read identifier
-        cmds = [
-            f"setdev 0 {self.port}",
-            "ecuid",
-            "quit",
-        ]
+        cmds = self._common_setup() + ["npconn", "npdisc", "quit"]
         script_path = self._write_script(cmds)
-        on_log("--- ECU ID read script ---")
+        on_log("--- ECU ID read script (no kernel) ---")
         for ln in cmds:
             on_log(f"  {ln}")
         try:
@@ -78,7 +86,9 @@ class TuneDumper:
                 on_log(line)
             proc.wait()
             full = "\n".join(output_lines)
-            ok = proc.returncode == 0 and "error" not in full.lower()
+            ok = (proc.returncode == 0 and
+                  "unrecognized" not in full.lower() and
+                  "error" not in full.lower())
             on_done(ok, full)
         except FileNotFoundError:
             on_log(f"nisprog binary not found at '{self.nisprog_bin}'. Add it to PATH.")
@@ -92,7 +102,7 @@ class TuneDumper:
 
     def test_connection(self, on_log: Callable[[str], None],
                         on_done: Callable[[bool, str], None]):
-        """Quick handshake: setdev -> npconn -> ecuid -> quit. No ROM read."""
+        """Full handshake: connect, upload kernel, stop kernel, disconnect."""
         if self._thread and self._thread.is_alive():
             on_log("Operation already in progress.")
             return
@@ -101,10 +111,10 @@ class TuneDumper:
         self._thread.start()
 
     def _run_test(self, on_log, on_done):
-        cmds = [f"setdev 0 {self.port}"]
+        cmds = self._common_setup() + ["npconn"]
         if self.kernel_path:
-            cmds.append(f'set kernel "{self.kernel_path}"')
-        cmds += ["npconn", "ecuid", "quit"]
+            cmds += [f'runkernel "{self.kernel_path}"', "stopkernel"]
+        cmds += ["npdisc", "quit"]
 
         script_path = self._write_script(cmds)
         on_log("--- Pre-flight test script ---")
@@ -121,14 +131,14 @@ class TuneDumper:
                 output_lines.append(line)
                 on_log(line)
             proc.wait()
-
             full = "\n".join(output_lines).lower()
             ok = (proc.returncode == 0 and
-                  ("ecuid" in full or "ecu id" in full or "connected" in full)
-                  and "error" not in full and "fail" not in full)
+                  "unrecognized" not in full and
+                  "error" not in full and
+                  "fail" not in full)
             on_done(ok, "\n".join(output_lines))
         except FileNotFoundError:
-            on_log(f"nisprog binary not found at '{self.nisprog_bin}'. Add it to PATH.")
+            on_log(f"nisprog binary not found at '{self.nisprog_bin}'.")
             on_done(False, "")
         except Exception as e:
             on_log(f"Error: {e}")
@@ -152,12 +162,13 @@ class TuneDumper:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         out_path = os.path.join(self.out_dir, f"rom_{ts}.bin")
 
-        cmds = [f"setdev 0 {self.port}"]
+        cmds = self._common_setup() + ["npconn"]
         if self.kernel_path:
-            cmds.append(f'set kernel "{self.kernel_path}"')
+            cmds.append(f'runkernel "{self.kernel_path}"')
         cmds += [
-            "npconn",
-            f'dumpmem 0 0x{self.rom_size_bytes:X} "{out_path}"',
+            f'dumpmem "{out_path}" 0 0x{self.rom_size_bytes:X}',
+            "stopkernel",
+            "npdisc",
             "quit",
         ]
 
