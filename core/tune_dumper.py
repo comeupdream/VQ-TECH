@@ -42,6 +42,54 @@ class TuneDumper:
         f.close()
         return f.name
 
+    def read_ecu_id(self, on_log: Callable[[str], None],
+                    on_done: Callable[[bool, str], None]):
+        """Read ECU ID via standard diagnostic protocol. No kernel upload required.
+
+        Useful for identifying the ECU hardware before sourcing a matching kernel.
+        """
+        if self._thread and self._thread.is_alive():
+            on_log("Operation already in progress.")
+            return
+        self._thread = threading.Thread(
+            target=self._run_ecu_id, args=(on_log, on_done), daemon=True)
+        self._thread.start()
+
+    def _run_ecu_id(self, on_log, on_done):
+        # No kernel, no npconn - just initialize and read identifier
+        cmds = [
+            f"setdev 0 {self.port}",
+            "ecuid",
+            "quit",
+        ]
+        script_path = self._write_script(cmds)
+        on_log("--- ECU ID read script ---")
+        for ln in cmds:
+            on_log(f"  {ln}")
+        try:
+            cmd = [self.nisprog_bin, "-f", script_path]
+            on_log(f"$ {' '.join(shlex.quote(c) for c in cmd)}")
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, text=True)
+            output_lines = []
+            for line in proc.stdout:
+                line = line.rstrip()
+                output_lines.append(line)
+                on_log(line)
+            proc.wait()
+            full = "\n".join(output_lines)
+            ok = proc.returncode == 0 and "error" not in full.lower()
+            on_done(ok, full)
+        except FileNotFoundError:
+            on_log(f"nisprog binary not found at '{self.nisprog_bin}'. Add it to PATH.")
+            on_done(False, "")
+        except Exception as e:
+            on_log(f"Error: {e}")
+            on_done(False, "")
+        finally:
+            try: os.unlink(script_path)
+            except Exception: pass
+
     def test_connection(self, on_log: Callable[[str], None],
                         on_done: Callable[[bool, str], None]):
         """Quick handshake: setdev -> npconn -> ecuid -> quit. No ROM read."""

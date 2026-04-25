@@ -83,6 +83,13 @@ class TunerTab:
         button_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
         button_frame.pack(pady=10)
 
+        self.btn_ecuid = ctk.CTkButton(
+            button_frame, text="READ ECU ID", width=140,
+            fg_color=ThemeManager.get("ACCENT_DIM"),
+            text_color=ThemeManager.get("TEXT_MAIN"),
+            command=self.on_read_ecu_id)
+        self.btn_ecuid.pack(side="left", padx=5)
+
         self.btn_test = ctk.CTkButton(
             button_frame, text="TEST CONNECTION", width=160,
             fg_color=ThemeManager.get("ACCENT_DIM"),
@@ -222,6 +229,70 @@ class TunerTab:
             out_dir=self.out_var.get().strip() or "tunes",
         )
 
+    def on_read_ecu_id(self):
+        self.dumper = self._build_dumper()
+        if not self.dumper:
+            return
+        self.txt_log.delete("1.0", "end")
+        self.btn_ecuid.configure(state="disabled", text="READING...")
+        self.btn_test.configure(state="disabled")
+        self.btn_dump.configure(state="disabled")
+        self.set_progress(0, "Reading ECU identifier (no kernel needed)...")
+        self.dumper.read_ecu_id(
+            on_log=self._safe_log,
+            on_done=self._on_ecu_id_done)
+
+    def _on_ecu_id_done(self, ok: bool, output: str):
+        self.frame.after(0, lambda: self.btn_ecuid.configure(state="normal", text="READ ECU ID"))
+        self.frame.after(0, lambda: self.btn_test.configure(state="normal"))
+        self.frame.after(0, lambda: self.btn_dump.configure(state="normal"))
+
+        ids = self._parse_ecu_identifiers(output)
+
+        if ok and ids:
+            self.frame.after(0, lambda: self.set_progress(0, "✓ ECU identified"))
+            self._safe_log("\n" + "=" * 50)
+            self._safe_log("DETECTED ECU IDENTIFIERS:")
+            for label, value in ids.items():
+                self._safe_log(f"  {label:14s} {value}")
+            self._safe_log("=" * 50)
+            self._safe_log("\nNext step: search for an npkern .bin matching this ECU.")
+            self._safe_log("VQ37 G37 ECUs typically use SH7058 - look for 'npk_sh7058.bin'.")
+            self._safe_log("Communities to search: NICOclub, RomRaider, GitHub.")
+        elif ok:
+            self.frame.after(0, lambda: self.set_progress(0, "Reply received - check log"))
+            self._safe_log("\nNo recognized ECU ID pattern in output. Inspect raw response above.")
+        else:
+            self.frame.after(0, lambda: self.set_progress(0, "✗ ECU did not respond"))
+            self._safe_log("\n✗ Failed. Check cable, K-Line switch position, ignition ON.")
+
+    def _parse_ecu_identifiers(self, text: str) -> dict:
+        """Extract ECU ID, part number, and Cal ID from nisprog output."""
+        import re
+        found = {}
+
+        # Nissan part number pattern: 23710-XXXXX
+        m = re.search(r"\b(237\d{2}[\s\-][A-Z0-9]{4,5})\b", text)
+        if m:
+            found["Part Number:"] = m.group(1).replace(" ", "-")
+
+        # nisprog often prints "ECU ID: <hex>"
+        m = re.search(r"ECU\s*ID[:\s]+([0-9A-Fa-f\s]{4,})", text)
+        if m:
+            found["ECU ID (hex):"] = m.group(1).strip()
+
+        # Cal ID: ASCII string after "CAL" or "Cal ID"
+        m = re.search(r"[Cc]al(?:ibration)?\s*[Ii][Dd][:\s]+([A-Za-z0-9\-_]{3,16})", text)
+        if m:
+            found["Cal ID:"] = m.group(1)
+
+        # ECU type / hardware string
+        m = re.search(r"(SH70[0-9]{2})", text)
+        if m:
+            found["Chip Family:"] = m.group(1)
+
+        return found
+
     def on_test_click(self):
         self.dumper = self._build_dumper()
         if not self.dumper:
@@ -229,6 +300,7 @@ class TunerTab:
         self.txt_log.delete("1.0", "end")
         self.btn_test.configure(state="disabled", text="TESTING...")
         self.btn_dump.configure(state="disabled")
+        self.btn_ecuid.configure(state="disabled")
         self.set_progress(0, "Pre-flight test...")
         self.dumper.test_connection(
             on_log=self._safe_log,
@@ -237,6 +309,7 @@ class TunerTab:
     def _on_test_done(self, ok: bool, output: str):
         self.frame.after(0, lambda: self.btn_test.configure(state="normal", text="TEST CONNECTION"))
         self.frame.after(0, lambda: self.btn_dump.configure(state="normal"))
+        self.frame.after(0, lambda: self.btn_ecuid.configure(state="normal"))
         if ok:
             self.frame.after(0, lambda: self.set_progress(0, "✓ ECU responded - ready to dump"))
             self._safe_log("\n✓ Pre-flight OK. Safe to attempt full dump.")
@@ -255,6 +328,7 @@ class TunerTab:
         self.txt_log.delete("1.0", "end")
         self.btn_dump.configure(state="disabled", text="DUMPING...")
         self.btn_test.configure(state="disabled")
+        self.btn_ecuid.configure(state="disabled")
         self.set_progress(0, "Starting dump...")
         self.dumper.dump(
             on_log=self._safe_log,
@@ -270,6 +344,7 @@ class TunerTab:
     def _on_dump_done(self, ok: bool, filepath: str):
         self.frame.after(0, lambda: self.btn_dump.configure(state="normal", text="START DUMP"))
         self.frame.after(0, lambda: self.btn_test.configure(state="normal"))
+        self.frame.after(0, lambda: self.btn_ecuid.configure(state="normal"))
         if ok:
             self.last_dump_path = filepath
             size_kb = os.path.getsize(filepath) / 1024.0
