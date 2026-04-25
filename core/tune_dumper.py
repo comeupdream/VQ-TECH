@@ -47,11 +47,19 @@ class TuneDumper:
         return {256: "7051", 512: "7055", 1024: "7058"}.get(self.rom_size_kb, "7058")
 
     def _common_setup(self):
-        """Commands to configure nisprog before any connection."""
+        """Commands to configure nisprog before any connection.
+
+        Nissan ECUs require ISO14230 (KWP2000) at L2, FAST init, and
+        physical addressing. nisprog's default ISO9141/5BAUD does NOT work
+        and will return 'L2 protocol must be iso14230' error.
+        """
         return [
             f"setdev {self._device_for_size()}",
             "set interface DUMB",
             f"set port {self.port}",
+            "set l2protocol iso14230",
+            "set initmode FAST",
+            "set addrtype phys",
         ]
 
     def read_ecu_id(self, on_log: Callable[[str], None],
